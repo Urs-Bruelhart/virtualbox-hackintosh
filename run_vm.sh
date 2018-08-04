@@ -43,8 +43,7 @@ VBoxManage setextradata "$VM" "VBoxInternal/Devices/efi/0/Config/DmiBoardProduct
 VBoxManage setextradata "$VM" "VBoxInternal/Devices/smc/0/Config/DeviceKey" "ourhardworkbythesewordsguardedpleasedontsteal(c)AppleComputerInc"
 VBoxManage setextradata "$VM" "VBoxInternal/Devices/smc/0/Config/GetKeyFromRealSMC" 1
 
-# set display size to 4 = 1440x900, 5 = 1900x1200
-VBoxManage setextradata "$VM" "VBoxInternal2/EfiGopMode" 4
+VBoxManage setextradata "$VM" VBoxInternal2/EfiGraphicsResolution 1440x900
 
 echo "Starting VM..."
 VBoxManage startvm "$VM"
