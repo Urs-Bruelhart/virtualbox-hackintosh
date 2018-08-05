@@ -2,48 +2,46 @@
 
 set -e
 
-VM="MacOS High Sierra"
-HARDDRIVE="macos-hs-live.vdi"
+. config
 
-if [ ! -r macos-hs.vdi ]; then
-  echo "File not found: macos-hs.vdi" 2>&1
+if [ ! -r "$VDI_IMAGE" ]; then
+  echo "File not found: $VDI_IMAGE" 2>&1
   echo "See instructions." 2>&1
   exit 1
 fi
 
-# Ref: https://github.com/geerlingguy/macos-virtualbox-vm/issues/24
-
-if [ ! -r "$HARDDRIVE" ]; then
+# Inspired by: https://github.com/geerlingguy/macos-virtualbox-vm/issues/24
+if [ ! -r "$VDI_LIVE_IMAGE" ]; then
   echo "Copying VDI snapshot to live disk..."
-  cp macos-hs.vdi "$HARDDRIVE"
+  cp "$VDI_IMAGE" "$VDI_LIVE_IMAGE"
 fi
 
-if VBoxManage createvm --name "$VM" --ostype "MacOS_64" --register 2>&1 ; then
-  echo "Creating VM..."
-  VBoxManage storagectl "$VM" --name "SATA Controller" --add sata --controller IntelAHCI
-  VBoxManage storageattach "$VM" --storagectl "SATA Controller" --port 0 --device 0 --type hdd --medium "$HARDDRIVE"
+if VBoxManage createvm --name "$VM_NAME" --ostype "MacOS_64" --register 2>/dev/null ; then
+  echo "Creating VM '$VM_NAME'..."
+  VBoxManage storagectl "$VM_NAME" --name "SATA Controller" --add sata --controller IntelAHCI
+  VBoxManage storageattach "$VM_NAME" --storagectl "SATA Controller" --port 0 --device 0 --type hdd --medium "$VDI_LIVE_IMAGE"
 fi
 
-VBoxManage modifyvm "$VM" --audiocontroller "hda"
-VBoxManage modifyvm "$VM" --chipset "ich9"
-VBoxManage modifyvm "$VM" --firmware "efi"
-VBoxManage modifyvm "$VM" --cpus "2"
-VBoxManage modifyvm "$VM" --hpet "on"
-VBoxManage modifyvm "$VM" --keyboard "usb"
-VBoxManage modifyvm "$VM" --memory "4096"
-VBoxManage modifyvm "$VM" --mouse "usbtablet"
-VBoxManage modifyvm "$VM" --vram "128"
+VBoxManage modifyvm "$VM_NAME" --audiocontroller "hda"
+VBoxManage modifyvm "$VM_NAME" --chipset "ich9"
+VBoxManage modifyvm "$VM_NAME" --firmware "efi"
+VBoxManage modifyvm "$VM_NAME" --cpus "2"
+VBoxManage modifyvm "$VM_NAME" --hpet "on"
+VBoxManage modifyvm "$VM_NAME" --keyboard "usb"
+VBoxManage modifyvm "$VM_NAME" --memory "4096"
+VBoxManage modifyvm "$VM_NAME" --mouse "usbtablet"
+VBoxManage modifyvm "$VM_NAME" --vram "128"
 
-# This works on my MacBookPro10,1 (2012), and purports to work on windows.
+# This works on my MacBookPro10,1 (2012), and purports to work on windows. In fact it may not be needed at all...
 # Ref: https://www.wikigain.com/install-macos-high-sierra-virtualbox-windows/
-VBoxManage modifyvm "$VM" --cpuidset  00000001 000106e5 00100800 0098e3fd bfebfbff
-VBoxManage setextradata "$VM" "VBoxInternal/Devices/efi/0/Config/DmiSystemProduct" "iMac11,3"
-VBoxManage setextradata "$VM" "VBoxInternal/Devices/efi/0/Config/DmiSystemVersion" "1.0"
-VBoxManage setextradata "$VM" "VBoxInternal/Devices/efi/0/Config/DmiBoardProduct" "Iloveapple"
-VBoxManage setextradata "$VM" "VBoxInternal/Devices/smc/0/Config/DeviceKey" "ourhardworkbythesewordsguardedpleasedontsteal(c)AppleComputerInc"
-VBoxManage setextradata "$VM" "VBoxInternal/Devices/smc/0/Config/GetKeyFromRealSMC" 1
+VBoxManage modifyvm "$VM_NAME" --cpuidset  00000001 000106e5 00100800 0098e3fd bfebfbff
+VBoxManage setextradata "$VM_NAME" "VBoxInternal/Devices/efi/0/Config/DmiSystemProduct" "iMac11,3"
+VBoxManage setextradata "$VM_NAME" "VBoxInternal/Devices/efi/0/Config/DmiSystemVersion" "1.0"
+VBoxManage setextradata "$VM_NAME" "VBoxInternal/Devices/efi/0/Config/DmiBoardProduct" "Iloveapple"
+VBoxManage setextradata "$VM_NAME" "VBoxInternal/Devices/smc/0/Config/DeviceKey" "ourhardworkbythesewordsguardedpleasedontsteal(c)AppleComputerInc"
+VBoxManage setextradata "$VM_NAME" "VBoxInternal/Devices/smc/0/Config/GetKeyFromRealSMC" 1
 
-VBoxManage setextradata "$VM" VBoxInternal2/EfiGraphicsResolution 1440x900
+VBoxManage setextradata "$VM_NAME" VBoxInternal2/EfiGraphicsResolution "$VM_DISPLAY_SIZE"
 
 echo "Starting VM..."
-VBoxManage startvm "$VM"
+VBoxManage startvm "$VM_NAME"

@@ -1,19 +1,20 @@
 #!/bin/sh
 
+# Inspiration: https://github.com/geerlingguy/macos-virtualbox-vm/issues/24
 set -e
 
-# Inspiration: https://github.com/geerlingguy/macos-virtualbox-vm/issues/24
+# set configuration variables
+. config
 
-# input
-ESD_IMAGE='/Applications/Install macOS High Sierra.app/Contents/SharedSupport/InstallESD.dmg'
-# output
-VDI_IMAGE="macos-hs.vdi"
+[ -d "$TMPDIR" ] || mkdir -p "$TMPDIR"
 
-# How big a disk?
-IMAGE_SIZE_GB=40
-IMAGE_SIZE_BYTES=$(($IMAGE_SIZE_GB * 1024 * 1024 * 1024))
+# internal variables
+TMP_MOUNT_OS=$TMPDIR/os
+TMP_MOUNT_ESD="$TMPDIR/esd"
+TMP_DMG_OS="$TMPDIR/os.dmg"
+VDI_IMAGE_SIZE_BYTES=$(($VDI_IMAGE_SIZE_GB * 1024 * 1024 * 1024))
 
-if [ ! -r "$ESD_IMAGE" ]; then
+if [ -z "$ESD_IMAGE" -o ! -r "$ESD_IMAGE" ]; then
   echo "Installation media not found: '$ESD_IMAGE'" 1>&2
   echo "See instructions." 1>&2
   exit 1
@@ -24,41 +25,58 @@ if [ -r "$VDI_IMAGE" ]; then
   exit 1
 fi
 
-
-trap "hdiutil detach /tmp/os 2>/dev/null || :; rm -f /tmp/os.dmg.sparseimage || :; hdiutil detach /tmp/installesd 2>/dev/null || :" EXIT SIGINT SIGHUP SIGQUIT SIGKILL SIGTERM
+# cleanup output and intermediaries on bad exit
+trap "
+  hdiutil detach "$TMP_MOUNT_OS" 2>/dev/null || :
+  hdiutil detach "$TMP_MOUNT_ESD" 2>/dev/null || :
+  rm -f "$TMP_DMG_OS.sparseimage" "$VDI_IMAGE"
+" SIGINT SIGHUP SIGQUIT SIGKILL SIGTERM
 
 echo "Attaching input OS X installer image..."
 hdiutil attach \
   -noverify \
   -nobrowse \
   -owners on \
-  -mountpoint /tmp/installesd \
+  -mountpoint "$TMP_MOUNT_ESD" \
   "$ESD_IMAGE"
 
-echo "Preparing temporary install destination: /tmp/os ..."
+echo "Preparing temporary install destination: $TMP_MOUNT_OS ..."
 hdiutil create \
-  -size "${IMAGE_SIZE_GB}g" \
+  -size "${VDI_IMAGE_SIZE_GB}g" \
   -type SPARSE \
-  -fs HFS+J \
+  -fs "HFS+J" \
   -volname "Macintosh HD" \
   -uid 0 \
   -gid 80 \
   -mode 1775 \
-  /tmp/os.dmg
-hdiutil attach -noverify -mountpoint /tmp/os -nobrowse -owners on /tmp/os.dmg.sparseimage
+  "$TMP_DMG_OS"
+hdiutil attach -noverify -mountpoint "$TMP_MOUNT_OS" -nobrowse -owners on "$TMP_DMG_OS.sparseimage"
 
-echo "Installing macOS to /tmp/os (takes a long time)..."
+echo "Installing macOS to $TMP_OS (takes a long time)..."
+  # -verboseR \
 installer \
-  -verboseR \
   -dumplog \
-  -pkg "/tmp/installesd/Packages/OSInstall.mpkg" \
-  -target "/tmp/os"
+  -pkg "$TMP_MOUNT_ESD/Packages/OSInstall.mpkg" \
+  -target "$TMP_MOUNT_OS"
 
 # detach (later reattach) to properly flush disk image
-hdiutil detach /tmp/os
+hdiutil detach "$TMP_MOUNT_OS"
 
 echo "Exporting installed disk to $VDI_IMAGE (takes a long time)..."
-MOUNTOUTPUT=$(hdiutil attach -noverify -mountpoint /tmp/os -nobrowse -owners on /tmp/os.dmg.sparseimage)
+MOUNTOUTPUT=$(hdiutil attach -noverify -mountpoint "$TMP_MOUNT_OS" -nobrowse -owners on "$TMP_DMG_OS.sparseimage")
 DISK_DEV=$(grep GUID_partition_scheme <<< "$MOUNTOUTPUT" | cut -f1 | tr -d '[:space:]')
 echo "DISK_DEV=$DISK_DEV"
-cat "$DISK_DEV" | VBoxManage convertfromraw stdin "$VDI_IMAGE" "$IMAGE_SIZE_BYTES"
+
+mkdir -p $(dirname "$VDI_IMAGE") 2>/dev/null || :
+
+# use progress viewer (homebrew, macport) if available
+if PV=$(which pv) ; then
+  cat "$DISK_DEV" | $PV -s "$VDI_IMAGE_SIZE_BYTES" | VBoxManage convertfromraw stdin "$VDI_IMAGE" "$VDI_IMAGE_SIZE_BYTES"
+else
+  cat "$DISK_DEV" | VBoxManage convertfromraw stdin "$VDI_IMAGE" "$VDI_IMAGE_SIZE_BYTES"
+fi
+
+hdiutil detach "$TMP_MOUNT_OS" 2>/dev/null || :
+hdiutil detach "$TMP_MOUNT_ESD" 2>/dev/null || :
+rm -f "$TMP_DMG_OS.sparseimage"
+exit 0

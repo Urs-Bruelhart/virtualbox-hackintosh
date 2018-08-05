@@ -1,9 +1,7 @@
 #!/bin/sh
 
-VM="MacOS High Sierra"
+. config
 
-set -e
-set -x
-VBoxManage controlvm "$VM" poweroff 2>/dev/null || :
-VBoxManage unregistervm "$VM" --delete 2>/dev/null || :
-rm -f macos-hs-live.vdi
+VBoxManage controlvm "$VM_NAME" poweroff 2>/dev/null
+VBoxManage unregistervm "$VM_NAME" --delete 2>/dev/null
+rm -f "$VDI_LIVE_IMAGE"

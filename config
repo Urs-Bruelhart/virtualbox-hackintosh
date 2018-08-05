@@ -1,0 +1,26 @@
+#!/bin/sh
+
+#
+# variables for scripts
+#
+
+# The sources for the installation are in this disk image.
+# Download the OS Upgrade, and if this file does not exist, run the app until the file is downloaded, then quit out of it
+ESD_IMAGE='/Applications/Install macOS High Sierra.app/Contents/SharedSupport/InstallESD.dmg'
+
+# create this pristine install image 
+VDI_IMAGE=./private/macos-hs.vdi
+
+# Runtime disk image available space in Gb (minimum 30, I think)
+VDI_IMAGE_SIZE_GB=40
+
+# run live VM off of this copy of install image
+VDI_LIVE_IMAGE=./private/macos-hs-live.vdi
+
+# The name of the running virtual machine instance in VirtualBox
+VM_NAME="MacOS High Sierra"
+# Display size: Full screen on a 15" Retina display
+VM_DISPLAY_SIZE="1440x900"
+
+# override TMPDIR (set by MacOS) for temporary mounts and images
+TMPDIR=./private
